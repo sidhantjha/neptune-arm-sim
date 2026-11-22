@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.vscode/
+runs/
+outputs/
+logs/
+*.log
+.env
+.env.*
+cad_raw/
