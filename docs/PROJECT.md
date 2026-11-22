@@ -8,8 +8,8 @@ Build and understand an articulated 2-DOF manipulator through simulation, valida
 - **M1**: Fixed-base 2R arm URDF, GUI joint sliders and manual FK verification demonstrated.
 - **M2**: Analytical FK/IK, Cartesian target control, quintic joint-space trajectories and modular PyBullet components implemented and **validated locally 6/6**; merged to remote `main` at `5a769e412beafb026cb9aa5b01d411af2f1ef181`.
 - **M3**: Parallel-jaw gripper with two prismatic fingers, contact/friction, movable-cube pinch, physical lift and release. **Implemented and user-validated 6/6** at 30/50/80 g; M2 regression 6/6; merged to `main` at `304fb401db97a7a8215ef44c6858a53517b5f60a`.
-- **M4**: Autonomous pick-and-place using known object pose is the next active workstream; **not implemented**.
-- **M5**: Talon CAD articulation/mount integration planned.
+- **M4**: Autonomous pick-and-place with known simulator object pose and fixed destination **implemented, validated locally 6/6 and fast-forward merged into `main` at `cf80ff7ab025da0d3256926a3fb84a8ccbb52d01`**. M2/M3 regressions 6/6 each; GUI and headless demo PASS.
+- **M5**: Real Talon arm CAD, kinematic frames, actuators and mass/inertia integration **next, not started**.
 - **M6**: Stonefish and Neptune ROV simulation integration planned.
 
 ## Implemented Layout and Ownership
@@ -28,6 +28,10 @@ Build and understand an articulated 2-DOF manipulator through simulation, valida
 - `src/grasping/contact.py`: static/movable 40 mm cube factory, lateral friction configuration, finger contact-point readings.
 - `src/grasping/lift.py`: 50 g cube support, grasp, approximately 10 cm vertical lift and gravity-based release demonstration.
 - `src/grasping/validate.py`: six repeatable trials, 30/50/80 g twice each, full grasp/lift/release outcome checks.
+- `src/pick_and_place/task.py`: `PickandPlaceTask` autonomous state machine (HOME, OPEN, APPROACH, ALIGN, GRASP, LIFT, TRANSFER, PLACE, RELEASE, RETREAT, SUCCESS or FAILED). Known pose input, joint-target trajectory commands, bilateral contact checks, motion timeout and placement verification.
+- `src/pick_and_place/demo.py`: initializes source/destination pedestals and movable cube; headless or `--gui` demo; checks tool-center world pose against PyBullet model.
+- `src/pick_and_place/validate.py`: six deterministic full-task trials at 30/50/80 g, two runs each; checks terminal state, exact sequence and <0.04 m placement error.
+- `src/common/config.py`: added `GRIPPER_TCP_REACH=0.345 m` while preserving M2 `L2=0.25 m`; `src/kinematics_control/kinematics.py` accepts optional tool reach; `controller.py` adds `set_joint_target()` and shared `_plan_joint_goal()` trajectory setup.
 - No separate `metrics.py` or `manual_demo.py` is needed for the current scope; essential metrics are calculated in `demo.py` and `validate.py`.
 
 ## Mathematical and Physical Model
@@ -47,16 +51,16 @@ IK uses the law of cosines for ±elbow branches and computes the corresponding s
 - Local headless `validate.py` reported **6/6 PASS** with max final Cartesian error 0.000005 m, max independent FK error 0.00000007 m, and max reported final joint error 0.001° across four endpoint tests.
 - Endpoint verification is not a proof of collision-free paths or real-world dynamics.
 - M3 tests: finger open/close PASS; fixed 40 mm cube squeeze PASS (four contact points per finger, summed normal force 8 N each); movable 50 g cube lift 0.1009 m and release drop 0.1016 m PASS; M3 six-trial headless validator 6/6 PASS at 30/50/80 g; M2 regression 6/6 PASS. These are user-reported local runs, not independently rerun by the assistant. Trials are repeated under identical initial conditions, not randomized disturbance tests.
-- M3 model mounting: gripper palm joint at local Link 2 x=0.27 m; finger centers at local palm x ≈0.075 m, so the current grasp center is **not the same point as the M2 arm TCP** at Link 2 x=0.25 m. M4 must explicitly transform between the grasp center, the Link 2 frame, and world targets and account for forearm orientation.
+- M3 gripper-center is approximately elbow-local x=0.345 m; M2 original arm TCP is x=0.25 m. M4 **implemented** tool-aware FK/IK with optional reach and compared it with PyBullet finger link world geometry, reporting **0.00000004 m** error at the tested pose. No independent wrist orientation control.
 - M3 finger opening range: 0.028–0.098 m, with two prismatic finger joints; finger motor limit set to 8 N and speed 0.06 m/s, friction coefficient parameter 1.0 for finger and cube. All settings provisional.
 - M1 automatic suite was intentionally skipped when M1 closed; M2 has its own now-verified headless validation, not a retroactive M1 run.
 
 ## Decisions and Constraints
 - Do not duplicate working physics/model/control code across M2, M3, and M4; import from shared modules.
 - Keep `demo.py` for interactive exploration and `validate.py` for repeatable checks; preserve old `run_arm.py` until deliberate cleanup.
-- No source-code changes during this documentation-only checkpoint.
+- This M4 documentation checkpoint records source changes that were already implemented and pushed by the developer and safely fast-forward merged to `main`; no further implementation code was changed in the documentation checkpoint.
 - M3 does use articulated prismatic fingers and measured frictional contacts, with no fake attachment. The model now exists in a separate URDF to preserve M2 regression behavior.
-- M4 will compose M2 arm motion with M3 gripper through a state-machine task executive (home, approach, align, close, verify, lift, transfer, release, retreat), using a **known simulated object pose** for initial planning rather than perception. Simulation ground truth is restricted to this M4 task prototype, not Neptune navigation/control.
+- M4 **does compose** M2 motion with M3 gripper using a state-machine task executive and a **known simulated object pose** for task planning. Simulation truth is confined to this learning prototype; the Neptune navigation/controller truth-vs-estimate separation remains unchanged.
 - No collision-free planner, obstacle-avoidance solver, real force/torque identification, or acceleration-continuous replanning is implemented.
 
 ## Neptune Integration Contracts — Future M5/M6
@@ -68,7 +72,6 @@ Parent repository: https://github.com/Project-Lumyn/Project-Neptune.
 - Any public topic/message/frame/unit/sign/ownership semantic change requires `docs/INTERFACES.md`, affected tests and cross-module review in Neptune's parent repository.
 
 ## Remaining Open Questions
-- M4: define grasp-center world transform, approach clearance and orientation constraints for the 2-DOF X–Z arm; select reachable pickup and placement supports.
-- M4: define state transitions, settle/contact thresholds, timeouts, post-lift object stability and place-position tolerance.
-- M4: known simulated object pose can be read from PyBullet initially; later perception must replace that input without silently changing navigation state contracts.
-- M5: actual Talon CAD axes, masses, inertia, grasp TCP and mounting transforms.
+- M4 limitations: approximately 2.04 cm observed placement offset, hard-coded transit waypoints, elbow-negative IK preference, no general collision-free planning, uncertain pose tolerance, or broad randomized-scene evaluation.
+- M5: locate authoritative Talon CAD/URDF/actuation assets in parent Neptune repo; verify real joint count, limits, inertias, mounting coordinate frames, tool-center definition, controllers and update rate.
+- M5/M6: map prototype semantics to actual vehicle frames and Stonefish actuator interfaces, keeping `/state/odometry` (navigation estimate) distinct from `/sim/odometry` (truth).

@@ -1,7 +1,7 @@
 # Experiments and Engineering Findings
 
 ## Scope and Evidence
-Results below are from **developer-provided terminal output and observations** unless stated otherwise. The assistant inspected the merged source code but did not rerun the developer's Windows/PyBullet environment. Commit `5a769e4` contains the completed M2 prototype; M3 implementation `304fb40` is merged into `main`. Developer-supplied console output establishes M3 tests and repeat M2 regression; no independent assistant test execution occurred.
+Results below are from **developer-provided terminal output and observations** unless stated otherwise. The assistant inspected the merged source code but did not rerun the developer's Windows/PyBullet environment. Commit `5a769e4` contains M2; M3 implementation `304fb40` and M4 validator checkpoint `cf80ff7` were fast-forward merged into `main`. Developer-supplied terminal output establishes M4 tests plus M3/M2 regression; no independent assistant PyBullet execution occurred.
 
 ## Index
 
@@ -20,6 +20,9 @@ Results below are from **developer-provided terminal output and observations** u
 | EXP-011 | M3 static cube pinch contact and force logging | PASS — user-observed |
 | EXP-012 | M3 movable 50 g cube grasp/lift/release | PASS — user-observed |
 | EXP-013 | M3 deterministic multi-mass trials | **PASS — 6/6** user-observed |
+| EXP-014 | M4 gripper TCP transform and automated demo | **PASS — GUI and headless** user-observed |
+| EXP-015 | M4 deterministic multi-mass end-to-end task | **PASS — 6/6** user-observed |
+| EXP-016 | M2/M3 regression after M4 changes | **PASS — M2 6/6; M3 6/6** user-observed |
 
 ## EXP-001 — Environment
 Date: 2026-11-21. Windows PowerShell, Conda `neptune-arm`, Python 3.11; PyBullet build reported Nov 21, 2026.
@@ -102,11 +105,30 @@ M2 regression afterward: `python -m src.kinematics_control.validate` → **6/6 P
 
 Interpretation: consistent grasp, lift and release for three tested masses in a deterministic pose/surface setup. Not a statistical success-rate estimate over varied starts, uncertain object pose, lateral motion, grip friction, or obstacles.
 
-## Next Experiments (M4; not yet run)
-- M4-001: verify gripper pinch-center world transform against current PyBullet link/finger transforms for several arm poses; ensure object center can be aligned using only 2R arm DOFs.
-- M4-002: execute ordered task states with **known simulated object pose** and fixed destination; verify each state transition and timeout behavior.
-- M4-003: autonomously approach, grasp, lift, transfer, set down and release a 40 mm/50 g object without attachments, using M2 and M3 motor controllers.
-- M4-004: evaluate placement error, stable release, phase failures and repeatability over explicitly chosen feasible pickup/destination configurations.
+## EXP-014 — M4 autonomous pick-and-place demonstration
+Date: 2026-11-22. Feature implementation commit `dc363fdfab3a7f88a7de4009e40fd537ff3c239e`, later validator `cf80ff7ab025da0d3256926a3fb84a8ccbb52d01`.
+Commands: `python -m src.pick_and_place.demo` and `python -m src.pick_and_place.demo --gui`.
+Environment: Windows PowerShell, Conda `neptune-arm`, PyBullet; generic fixed-base two-revolute arm with parallel-jaw gripper, 40 mm movable cube, known source pose `(0.645,0,0.65) m`, destination `(0.49,0,0.60) m`. Source support top at 0.63 m; destination support top at 0.58 m. M4 includes a joint-space target method and a TCP reach correction from 0.25 m (M2 arm tip) to 0.345 m (gripper center); reported analytical-vs-PyBullet gripper TCP error **0.00000004 m**.
+
+Full history: `HOME -> OPEN -> APPROACH -> ALIGN -> GRASP -> LIFT -> TRANSFER -> PLACE -> RELEASE -> RETREAT -> SUCCESS`.
+Headless and GUI both reported `M4 RESULT: PASS`; 50 g final cube pose `(0.4696,0.0016,0.6) m`, target `(0.49,0,0.6) m`, Euclidean placement error **0.0204 m**. This is inside the code's 4 cm acceptance tolerance. Object motion uses PyBullet contact/friction, not a hidden rigid attachment or teleport. The user also visually inspected the GUI, but no quantitative trajectory collision/clearance analysis is recorded.
+
+## EXP-015 — M4 repeated six-trial end-to-end validation
+Command: `python -m src.pick_and_place.validate`.
+Test definition: independent reset PyBullet episodes with the same 40 mm cube geometry and source/destination poses, masses **0.03, 0.05, 0.08 kg**, **two trials each**. Validator checks `run_episode` returns success, exact expected state sequence, finite Euclidean placement error **<0.04 m**. The task itself checks grasp bilateral contacts, >6 cm lift from initial cube height, continued contacts at transfer/place, final support contact, 4 cm XY/Z placement bounds and low object linear velocity.
+
+Developer's final summary: **`M4 VALIDATION: 6/6 PASSED`**. Excerpted trial details: 0.050 kg trial 2 error=0.0204 m PASS, 0.080 kg trials 1 and 2 error=0.0204 m PASS. Other three trial-specific final errors were not included in the shared excerpt, so do not invent them.
+
+Inference boundary: six deterministic runs do **not** establish statistical robustness to uncertain position, varying surface friction, camera errors, obstacles, or object dimensions.
+
+## EXP-016 — Regression after M4
+Developer ran `python -m src.grasping.validate` → **M3 6/6 PASS**, and `python -m src.kinematics_control.validate` → **M2 6/6 PASS** after M4 implementation, before commit/push. The M4-specific `validate.py` was added later on GitHub and then run with **6/6 PASS**; no subsequent M2/M3 rerun after the added validator was separately reported, but the validator only adds a new file.
+
+## Next Experiments (M5 / integration; not yet run)
+- Inspect actual Talon manipulator CAD and technical documents; verify joint layout, travel, frames, actuator behavior and hardware mass/inertia estimates from the parent Neptune repository.
+- Compare actual arm reach, joint geometry and tool pose against the generic fixed-base planar prototype; document incompatibilities, not assumed equivalence.
+- Identify Stonefish articulation/collision/actuator mapping and write a minimal real-arm model validation plan.
+- Before claiming deployment readiness: test multiple pickup poses, disturbances, force/friction variation, safety limits and real measured state feedback.
 
 ## Technical Debt / Known Limitations
 - `src/run_arm.py` is a legacy monolithic script; now-independent `src.kinematics_control.demo` is preferred. No deletion was performed.
@@ -114,5 +136,5 @@ Interpretation: consistent grasp, lift and release for three tested masses in a 
 - Nearest-branch IK heuristic does not perform obstacle/collision-free path search.
 - Repeated GUI changes may cause trajectory replanning and derivative discontinuities.
 - Existing M3 code loads gripper URDF directly; `src/common/robot.load_robot` assumes two joints and is used for M2 only. M4 must not naively replace the M2 loader with a five-joint model.
-- M3 cube generator has fixed position (0.645,0,0.65) and no parameterized placement yet; M4 may add pose arguments and preserve M3 regression tests.
-- The original M2 tip TCP is not M3's gripper pinch center; M4 needs an explicit transform.
+- M3 cube generator has fixed position (0.645,0,0.65) and no parameterized placement; M4 reuses this known-pose scene with a fixed destination, not a variable-pose benchmark.
+- The original M2 tip TCP is not the M3 gripper pinch center; M4 introduced a 0.345 m tool-reach correction and verified it at a tested pose. No articulated wrist or collision-free planner was added.

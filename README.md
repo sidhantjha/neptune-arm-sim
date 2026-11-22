@@ -1,8 +1,8 @@
 # Neptune Arm Simulation
 
-A simulation-first learning and engineering project for a **two-revolute-joint (2-DOF) planar robotic arm with a parallel-jaw gripper**. The PyBullet prototype now supports analytical FK/IK, smooth joint-space trajectories, Cartesian targeting, physical object contact, pinch grasp, lift and gravity-based release. Next is autonomous pick-and-place, then adaptation of Project Neptune's Talon manipulator in Stonefish.
+A simulation-first learning and engineering project for a **two-revolute-joint (2-DOF) planar robotic arm with a parallel-jaw gripper**. The completed educational PyBullet prototype supports analytical FK/IK, smooth joint-space trajectories, Cartesian targeting, physics-based gripping and **autonomous pick-and-place using the object's known simulated pose**. The next, separate engineering workstream is adapting the ideas to Project Neptune's actual Talon manipulator and Stonefish.
 
-**Status:** **M0–M3 complete** for the tested simulation scope; **M4 (autonomous pick-and-place with known simulated object pose) is next, not yet implemented**. M3 implementation was fast-forward merged to `main` at [`304fb40`](https://github.com/sidhantjha/neptune-arm-sim/commit/304fb401db97a7a8215ef44c6858a53517b5f60a).
+**Status:** **M0–M4 complete for the defined simulation-prototype scope.** M4 implementation and six-trial validator are on `main` at [`cf80ff7`](https://github.com/sidhantjha/neptune-arm-sim/commit/cf80ff7ab025da0d3256926a3fb84a8ccbb52d01); the developer reported **M4 6/6 PASS**, plus **M3 6/6** and **M2 6/6** regression. **M5 — actual Talon CAD/actuation integration — is the next project workstream, not started.**
 
 ## Quick start
 
@@ -20,6 +20,11 @@ python -m src.grasping.gripper
 python -m src.grasping.contact
 python -m src.grasping.lift
 python -m src.grasping.validate
+
+# M4: full autonomous task (headless), GUI replay, and six-trial validation
+python -m src.pick_and_place.demo
+python -m src.pick_and_place.demo --gui
+python -m src.pick_and_place.validate
 
 # Optional: inspect individual modules
 python -m src.common.simulation
@@ -56,6 +61,10 @@ src/
     contact.py              # Test cube, friction, finger contact readings
     lift.py                 # Supported cube, pinch, lift and release
     validate.py             # Six deterministic mass/repeat trials
+  pick_and_place/
+    task.py                 # HOME→OPEN→APPROACH→ALIGN→GRASP→LIFT→TRANSFER→PLACE→RELEASE→RETREAT
+    demo.py                 # World setup; known object pose; headless and --gui runner
+    validate.py             # Six end-to-end mass/repeat trials
 docs/
   PROJECT.md                # Mission, architecture, constraints, roadmap
   PROGRESS.md               # Verified accomplishments and milestone status
@@ -111,6 +120,18 @@ The M3 robot URDF has two revolute arm joints, a fixed palm mount, and two prism
 
 **Scope:** all M3 tests used one 40 mm cube geometry, fixed starting pose, and two repeats per mass under identical conditions; they do not demonstrate robustness to arbitrary placement, orientation, object geometry, or uncertain friction. The 8 N fixed-object contact reading is not a calibration of grasp force in moving trials.
 
+## Verified M4 autonomous pick-and-place
+
+M4 reuses the M2 arm controller and M3 finger controller; `src/pick_and_place/task.py` provides a state machine with explicit motor commands, per-state timeouts, measured finger contacts, lift verification and destination placement verification. The scene uses an initially known 40 mm cube pose `(0.645, 0, 0.650) m` and a fixed destination target `(0.490, 0, 0.600) m`; the object stays dynamic and is **not welded or teleported** to the gripper.
+
+- `GRIPPER_TCP_REACH=0.345 m` from elbow; original M2 arm-tip `L2=0.25 m` remains unchanged. FK/IK optionally accepts this tool reach, and M4 adds a shared joint-space target method to `ArmController`.
+- The analytical gripper-center TCP was compared with PyBullet's world-link geometry: **0.00000004 m error** in the demonstrated initial configuration.
+- Developer ran the headless and GUI autonomous demo with **SUCCESS** through all states; 50 g cube final position approximately `(0.4696, 0.0016, 0.6000) m`, **0.0204 m** Euclidean placement error.
+- `python -m src.pick_and_place.validate`: **6/6 PASS** (two independent reset-simulation trials at each mass: 30, 50, 80 g). The output excerpts provided for 50 g trial 2 and 80 g trials 1–2 report **0.0204 m** placement error; the combined summary reports all six passed. M2 and M3 six-check regressions both passed afterward.
+- M4 validator requires full expected state history, terminal success and placement error **under 0.04 m**. These are **user-reported local results**; assistant reviewed remote code but did not run PyBullet.
+
+This is a **deterministic, fixed-base 2-DOF proof of concept**. Waypoints and destination geometry are specifically chosen for this scene; the system is **not** yet camera-driven, obstacle-aware, disturbance-tested, wrist-pose-controlled, underwater, or connected to Talon hardware. The ~2 cm placement offset is worth reducing in future precision work.
+
 ## Milestones
 
 | Milestone | Status |
@@ -119,8 +140,8 @@ The M3 robot URDF has two revolute arm joints, a fixed palm mount, and two prism
 | M1 — 2-DOF URDF, manual sliders, FK comparison | Manual demonstration complete |
 | M2 — FK/IK, Cartesian control, quintic trajectories, modular architecture, validation | **Complete: 6/6 headless validation** |
 | M3 — Two-finger gripper, contact forces, grasp/lift/release | **Complete: 6/6 repeated-trial validation** |
-| M4 — Autonomous pick-and-place using known object pose | **Next; not yet implemented** |
-| M5 — Talon arm CAD integration | Planned |
+| M4 — Autonomous pick-and-place using known object pose | **Complete: end-to-end GUI/headless PASS; 6/6 deterministic trials** |
+| M5 — Talon arm CAD integration | **Next; not started** |
 | M6 — Stonefish/Neptune ROV integration | Planned |
 
 ## Known limitations
@@ -128,7 +149,7 @@ The M3 robot URDF has two revolute arm joints, a fixed palm mount, and two prism
 - Joint-space interpolation does not guarantee straight-line TCP motion or collision-free paths.
 - Replanning while dragging sliders restarts a quintic path and is position-continuous at the commanded configuration, but may not be velocity/acceleration continuous.
 - Model dimensions, masses, inertias and motor settings are provisional examples, not identified Talon hardware parameters.
-- No autonomous pick-and-place task state machine, object perception, underwater dynamics, or real-robot control yet.
-- The M2 validator checks selected target endpoints and reachability, not all intermediate collisions. M3 tests deterministic grasp/lift/release at a single object pose, not varied placement/friction. The M2 TCP points to Link 2's end, while the M3 grasp center is offset; M4 must account for that transform.
+- Autonomous pick-and-place **is implemented** for a known-pose test scene; there is still no object perception, underwater dynamics, or real-robot control.
+- M2 validates selected target endpoints rather than collision-free paths. M3/M4 test deterministic grasp and placement at a fixed object pose with one cube geometry; M4 compensates for the gripper TCP offset but uses hard-coded transfer waypoints and an elbow-negative IK preference. No general collision-free planner.
 
 See [project definition](docs/PROJECT.md), [milestone progress](docs/PROGRESS.md), [recorded experiments](docs/EXPERIMENTS.md), and [next steps](docs/NEXT_STEPS.md). The parent vehicle project lives separately at [Project-Lumyn/Project-Neptune](https://github.com/Project-Lumyn/Project-Neptune).
