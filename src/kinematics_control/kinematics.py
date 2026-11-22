@@ -13,7 +13,7 @@ from src.common.config import (
 # FORWARD KINEMATICS
 # ==========================================
 
-def forward_kinematics(q1, q2):
+def forward_kinematics(q1, q2, tool_reach = L2):
     """
     Joint angles -> end-effector position.
 
@@ -27,12 +27,12 @@ def forward_kinematics(q1, q2):
 
     link2_angle = q1 + q2
 
-    x = L1 * math.cos(q1) + L2 * math.cos(link2_angle)
+    x = L1 * math.cos(q1) + tool_reach * math.cos(link2_angle)
 
     z = (
         SHOULDER_HEIGHT
         + L1 * math.sin(q1)
-        + L2 * math.sin(link2_angle)
+        + tool_reach * math.sin(link2_angle)
     )
 
     return x, z
@@ -42,7 +42,7 @@ def forward_kinematics(q1, q2):
 # INVERSE KINEMATICS
 # ==========================================
 
-def inverse_kinematics(x_target, z_target):
+def inverse_kinematics(x_target, z_target, tool_reach = L2):
     """
     End-effector position -> possible joint angles.
 
@@ -59,8 +59,8 @@ def inverse_kinematics(x_target, z_target):
 
     # Law of cosines: D = cos(q2)
     D = (
-        u**2 + v**2 - L1**2 - L2**2
-    ) / (2 * L1 * L2)
+        u**2 + v**2 - L1**2 - tool_reach**2
+    ) / (2 * L1 * tool_reach)
 
     tolerance = 1e-9
 
@@ -88,8 +88,8 @@ def inverse_kinematics(x_target, z_target):
 
         # Angular correction caused by elbow bend
         alpha = math.atan2(
-            L2 * math.sin(q2),
-            L1 + L2 * math.cos(q2)
+            tool_reach * math.sin(q2),
+            L1 + tool_reach * math.cos(q2)
         )
 
         q1 = beta - alpha

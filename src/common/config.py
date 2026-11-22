@@ -11,6 +11,17 @@ SHOULDER_HEIGHT = 0.65    # Shoulder height in world frame (m)
 
 JOINT_LIMIT = 2.6         # Joint limits: +/- 2.6 radians
 
+# Gripper grasp center relative to elbow joint
+GRIPPER_MOUNT_X = 0.27
+FINGER_JOINT_X = 0.02
+FINGER_CENTER_X = 0.055
+
+GRIPPER_TCP_REACH = (
+    GRIPPER_MOUNT_X
+    + FINGER_JOINT_X
+    + FINGER_CENTER_X
+)
+
 
 # =========================
 # PHYSICS CONFIGURATION

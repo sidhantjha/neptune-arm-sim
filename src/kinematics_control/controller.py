@@ -7,6 +7,7 @@ from src.common.config import (
     MOTOR_MAX_VELOCITY,
     MIN_TRAJECTORY_DURATION,
     PLANNED_SPEED_LIMIT,
+    JOINT_LIMIT,
 )
 
 from src.common.robot import get_joint_angles
@@ -75,11 +76,20 @@ class ArmController:
         )
 
         # Create a new trajectory
+        return self._plan_joint_goal(new_goal)
+
+    def set_joint_target(self,q1,q2):
+        # Command a joint configuration directly
+        if abs(q1) > JOINT_LIMIT or abs(q2) > JOINT_LIMIT:
+            return False
+        self.last_request = None
+        return self._plan_joint_goal((q1, q2))
+
+    def _plan_joint_goal(self,goal):
         self.q_start = self.q_command
-        self.q_goal = new_goal
+        self.q_goal = goal
         self.elapsed = 0.0
 
-        # Calculate duration using planned speed limit
         max_delta = max(
             abs(self.q_goal[i] - self.q_start[i])
             for i in range(2)
@@ -91,7 +101,6 @@ class ArmController:
         )
 
         self.target_valid = True
-
         return True
 
     # ======================================
