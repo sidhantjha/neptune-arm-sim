@@ -1,51 +1,49 @@
 # Active Work and Next Steps
 
-## Current Status
-**M2 is complete for the prototype's verified scope. M3 is queued, not yet started.**
+## Phase
+**M3 complete; M4 — autonomous pick-and-place with known object pose — ready to begin.**
 Repository: https://github.com/sidhantjha/neptune-arm-sim
-Canonical remote branch: `main`.
-Last verified M2 implementation/merge commit: `5a769e412beafb026cb9aa5b01d411af2f1ef181`.
-The user explicitly asked to finish GitHub documentation **and pause before proceeding to the next phase**.
+Canonical stable branch: `main`.
+Last M3 implementation/merge checkpoint: `304fb401db97a7a8215ef44c6858a53517b5f60a`.
+M3 six-trial validation: **6/6 PASS**; M2 regression: **6/6 PASS** (developer-provided runs).
+The M4 branch should be `feat/m4-pick-and-place`; no M4 implementation has been written or tested at this checkpoint.
 
-## Exact Next Action — Only After User Says to Begin M3
-Start an M3 gripper-design discussion grounded in the current 2-DOF URDF, and agree on a minimal two-finger gripper model (mount/TCP location, finger joints/actuation, objects, friction and measurable grasp criteria) **before changing source code**. Preserve `main` as stable baseline; use a new feature branch for M3 implementation.
+## M4 Goal
+Given **known simulated object position** and a **fixed target placement position**, automatically perform `HOME → OPEN → APPROACH → ALIGN/LOWER → CLOSE → VERIFY_GRASP → LIFT → TRANSFER → LOWER/PLACE → OPEN/RELEASE → RETREAT → SUCCESS`, reusing existing M2 `ArmController` and M3 `GripperController`. No camera, object-detection inference, teleoperation, or artificially attached object is required for M4 prototype. Use simulated cube pose (e.g. PyBullet `getBasePositionAndOrientation`) as a **task-level provided input**, explicitly marked ground truth; do **not** route simulator truth into Neptune vehicle navigation/control loops.
 
-## Following Five Steps for M3
-1. Define gripper geometry, mount transform relative to Link 2's TCP, joint axes and ranges, and object test geometry. Decide what "successful grip/lift" means.
-2. Create an M3 feature branch and extend or add a URDF with physically modeled moving fingers, contact/collision shapes, and inertias; keep the original arm demo functional.
-3. Add reusable gripper control/state/contact helpers, reusing `src/common` simulation and existing M2 arm IK/trajectory controller.
-4. Demonstrate opening/closing and object contact, then lift, hold and release a known object; capture contact forces where available. No fake teleport/attachment as the sole grasp mechanism.
-5. Run repeatable grasp trials with explicit object mass/friction and pass/fail metrics; record experiments, checkpoint docs, then merge only after verification.
+## Exact Next Action
+**Before new task code**, explain and verify the gripper's **actual pinch-center tool frame** relative to Link 2 and the existing M2 FK/IK TCP, then choose a reachable source cube and destination/support layout compatible with the arm's two planar DOFs. The M2 FK tip uses local Link 2 x=0.25 m. The present gripper jaw center is approximately local Link 2 x=0.27+0.02+0.055=0.345 m, so blindly commanding the M2 tip to cube center would miss by ~0.095 m at horizontal orientation. Need account for orientation q1+q2 and jaw pose in world frame. Confirm with PyBullet state, not only nominal values.
 
-## M3 Acceptance Criteria — Proposed, Not Yet Approved
-- Fingers respond to open/close commands within modeled joint limits.
-- Grasp depends on physically simulated contacts/friction, not hidden rigid attachment.
-- A test object can be contacted, lifted, carried briefly and released.
-- Logs include grasp outcomes, example contact forces and failure modes.
-- Existing M2 6/6 headless validation still passes after gripper-related changes, or any intended interface change is explicitly documented and tested.
+## Following Implementation Steps
+1. Create `src/pick_and_place/` with `__init__.py` and small, reusable world/geometry or task configuration (known pickup pose, target pose, support, safe approach/lift clearances). Reuse `src/grasping/contact.py` and `lift.py`; modify cube spawn function only if needed, preserving defaults and M3 validation.
+2. Implement a compact `task.py` state machine that owns sequencing but delegates joint commands to existing M2 arm controller and M3 finger controller. Keep state and timeout thresholds explicit; no duplicate motor or IK implementations.
+3. Implement one full task demonstration (`demo.py` or a minimal `task.py` entrypoint, avoid redundant files) with known cube pose. Validate approach alignment, bilateral contacts, lift, transport, safe placement, fingers opening and retreat.
+4. Add `validate.py` with repeatable full-task trials and logged metrics: success/failure by state, contact persistence, peak object slip, final placement XY/Z error, task steps/simulation time and recovery/abort behavior.
+5. Rerun M3 6/6 plus M2 6/6 regression after changes; checkpoint test configurations/results, preserve `main` until passing; push feature branch, fast-forward merge safely, update README and four continuity docs.
 
-## M4 Outline
-Use known object coordinates initially. Compose M2 motion and M3 gripper control in a task state machine: HOME → APPROACH → LOWER → CLOSE → VERIFY → LIFT → TRANSFER → RELEASE → RETREAT. Add timeouts, recovery logic and repeated-trial metrics; no perception required for the first M4 demonstration.
+## M4 Initial Acceptance Criteria (proposed; adjust before validation)
+- Starting object pose and destination are explicitly provided or read from simulation only at the **task input** boundary.
+- Arm's commanded gripper/pinch center reaches intended pickup and place waypoints to specified tolerances; any unreachable target fails safely.
+- Object remains dynamically simulated, held by collision/friction (no teleport, rigid constraint, or forced attachment).
+- All required task states occur in order; transitions depend on measured state/contacts/timeouts rather than assuming a command instantly completes.
+- Successful pickup lifts cube clear of source support; transfer does not lose contact; object is released and rests stably at destination.
+- Test reports final object placement error and grasp/transfer success for each trial; M2/M3 regression remains green.
 
-## M5–M6 Outline
-M5: inspect real Talon STEP/CAD, identify link/joint frames, realistic mass/inertia, actuator constraints and mount. M6: implement Stonefish articulated arm and Neptune vehicle integration with explicit frame/units/interface contract review.
+## Existing Code Reuse
+- `models/2_dof_gripper.urdf`: arm (revolute indices 0/1), fixed gripper mount (2), prismatic fingers (3/4).
+- `src/common/simulation.py`: physics and time stepping; `src/common/config.py`: link lengths/time step.
+- `src/kinematics_control/{kinematics,trajectory,controller}.py`: analytical FK/IK, quintic joint commands, arm controller.
+- `src/grasping/gripper.py`: symmetric opening commands; `src/grasping/contact.py`: cube spawning, friction, bilateral contacts; `src/grasping/lift.py`: support and cube-pose inspection.
+- Keep `models/2_dof_arm.urdf` and `src.common.robot.load_robot` for M2's two-joint tests; the M3/M4 gripper URDF is a distinct five-joint asset. Do not treat the shared M2 loader's `num_joints==2` assumption as valid for gripper model.
+- `src/run_arm.py` is still historical monolithic code; no need to remove during M4 unless the user explicitly asks.
+- No dedicated metrics module needed until task metrics genuinely become reusable.
 
-## Immediate Verification Commands
-From the repository root with the `neptune-arm` environment active:
-```powershell
-git status
-git log -3 --oneline
-python -m src.kinematics_control.validate
-python -m src.kinematics_control.demo
-```
-The headless M2 validation was last reported as `6/6 PASSED` after `5a769e4`; don't claim a fresh rerun until one occurs.
+## Known Constraints and Risks
+- The arm only moves in the X–Z plane. Pinch occurs along **local ±Y**; object approach and placement must be geometrically feasible with arm pose and wrist orientation coupled to q1+q2.
+- The old FK/IK targets the *tip of Link 2*, not the grasp center. This offset matters for autonomous precise pickup/placement.
+- The M2 closest-joint IK solution and joint-space quintic trajectories do **not** guarantee collision avoidance; choose conservative waypoints and monitor contacts during transitions.
+- Object mass, friction and motor parameters are generic, not calibrated to Talon real hardware.
+- M3 validation is deterministic: single cube size 40 mm, one starting pose, three masses with two repeats each. Extend the scenario set in M4 rather than claiming broad robustness.
 
-## Important Constraints and Continuity
-- Shared code lives in `src/common/{config,simulation,robot}.py`; math/trajectory/controller in `src/kinematics_control/`. Prefer `python -m src.kinematics_control.demo`.
-- `src/run_arm.py` remains as an untouched historical monolithic script; remove only with user's explicit agreement and after verifying no references rely on it.
-- `metrics.py` and redundant manual demos were intentionally skipped.
-- Generic PyBullet world +Z up vs Neptune vehicle body +Z down. Parent repo interfaces and control ownership are unchanged.
-- Joint-space trajectories are not collision-free plans; user manually observed base collision pushback, without quantitative force evidence.
-- Do not implement source code or begin M3 until user explicitly asks.
-- User prefers teaching-led, one-file-at-a-time copy/paste implementations; assistant may write approved GitHub continuity documentation.
-- For a new chat, fetch remote refs; read README, `PROJECT.md`, `PROGRESS.md`, `EXPERIMENTS.md`, `NEXT_STEPS.md` and inspect relevant source before continuing. Repository beats remembered history.
+## Continuity / Repository Safety
+Read README, `docs/PROJECT.md`, `docs/PROGRESS.md`, `docs/EXPERIMENTS.md` and this file before resuming. Check branch, remote main SHA and working tree. Work on `feat/m4-pick-and-place` and keep main stable; never force push or overwrite another contributor. User prefers small code snippets to paste and test one file at a time. GitHub is authoritative; record verified observations separately from proposed designs.

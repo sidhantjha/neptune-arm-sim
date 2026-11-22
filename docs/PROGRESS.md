@@ -1,9 +1,9 @@
 # Project Progress
 
-Last continuity checkpoint: 2026-11-21 — documentation synchronized after M2 merge
+Last continuity checkpoint: 2026-11-22 — M3 implementation merged and documentation synchronized
 Canonical branch: `main`
-Last verified implementation merge: `5a769e412beafb026cb9aa5b01d411af2f1ef181`
-Current phase: **M2 complete; M3 queued, awaiting explicit start**
+Last verified implementation merge: `304fb401db97a7a8215ef44c6858a53517b5f60a`
+Current phase: **M3 complete for tested scope; M4 ground-truth pick-and-place next**
 
 ## Milestone Status
 
@@ -12,8 +12,8 @@ Current phase: **M2 complete; M3 queued, awaiting explicit start**
 | M0 — Repository/environment | Complete | Working Windows Conda/PyBullet environment and initial repo |
 | M1 — Basic 2-DOF simulation | Manual demo complete | Two joints, position sliders, URDF, FK comparison; M1 code at `35bb555` |
 | M2 — Kinematics and control | **Complete for defined M2 prototype scope** | Modular implementation `5a769e4` on `main`; developer's local six-check validation passed |
-| M3 — Two-finger gripper and contact grasp | Not started | Next planned phase; user requested pause |
-| M4 — Automated pick-and-place | Pending | Depends on M3 |
+| M3 — Two-finger gripper and contact grasp | **Complete for defined test scope** | Static cube contact test, 50 g lift/release; 6/6 multitrial validation at 30/50/80 g, code on `main` at `304fb40` |
+| M4 — Automated pick-and-place with known object pose | **Next; not implemented** | State machine, grasp TCP geometry and task success criteria pending |
 | M5 — Talon CAD arm integration | Pending | Actual CAD not processed |
 | M6 — Stonefish/Neptune integration | Pending | Not started |
 
@@ -33,24 +33,44 @@ Current phase: **M2 complete; M3 queued, awaiting explicit start**
   - Tolerances: target error ≤0.01 m; FK error ≤0.0001 m; joint error ≤2°.
 - Local `feat/m2-kinematics` commit `5a769e4` pushed; user fast-forward merged into `main` and pushed; reported clean working tree with `main` tracking `origin/main`. Assistant subsequently confirmed remote `main` contains `5a769e4`.
 
+## M3 Verified Accomplishments (user-provided Windows PowerShell output)
+- `feat/m3-gripper` committed at `304fb401db97a7a8215ef44c6858a53517b5f60a`, pushed to GitHub, then fast-forward merged into `main` with no divergence.
+- `models/2_dof_gripper.urdf` loads five joints: shoulder (revolute, index 0), elbow (revolute, index 1), palm mount (fixed, index 2), left/right fingers (prismatic, indices 3 and 4).
+- `python -m src.grasping.gripper`: open gap 0.0980 m and closed gap 0.0280 m, **PASS**.
+- `python -m src.grasping.contact`: before contacts (0,0); measured gap 0.0400 m against fixed 40 mm cube; four contact points per finger, summed normal force 8.000 N each, **PASS**.
+- `python -m src.grasping.lift`: 50 g dynamic cube; initial contacts (2,4), grip opening 0.0401 m, cube z 0.6506 → 0.7516 m, lift 0.1009 m; after-lift contacts (2,3); release drop 0.1016 m; **PASS**.
+- `python -m src.grasping.validate`: **6/6 PASS** across two deterministic trials each:
+  - 30 g: lift 0.0973 m, drop 0.0975 m (both trials).
+  - 50 g: lift 0.1009 m, drop 0.1016 m (both trials).
+  - 80 g: lift 0.1013 m, drop 0.1015 m (both trials).
+- After M3, `python -m src.kinematics_control.validate` was rerun: **6/6 PASS**, preserving earlier M2 output values.
+- Scope caveat: same 40 mm cube, fixed starting pose, friction settings and two repeat runs per mass; no randomized pose/geometry/noise evaluation or autonomous placement yet.
+
 ## Current Source State
 - Main M2 entry point: `python -m src.kinematics_control.demo`.
 - Headless M2 validator: `python -m src.kinematics_control.validate`.
 - Reusable modules: `src/common/{config,simulation,robot}.py`, `src/kinematics_control/{kinematics,trajectory,controller}.py`.
 - `src/run_arm.py` is still present, monolithic, and redundant for the new M2 path. Do not describe it as deleted or refactored to a minimal launcher.
 - No dedicated `metrics.py`; intentionally skipped by user. Core errors live in demo/validator.
-- No gripper code, M3 tests or M4 task logic yet.
+- M3 gripper modules and five-joint URDF are present on `main` at `304fb40`; `grasping/gripper.py`, `contact.py`, `lift.py`, `validate.py` are validated by the user. No M4 task code or perception yet.
 
 ## Remaining Limitations
 - The six M2 checks cover four endpoint motions, one FK/IK round trip, and one unreachable-target rejection; they do not certify all paths or collision-free planning.
 - Joint-space quintic interpolation has endpoint zero planned velocity/acceleration for completed trajectories, but mid-flight target changes can be velocity/acceleration discontinuous.
 - Closest-IK-branch heuristic can select unsafe joint-space motions; collision response is not motion planning.
 - Dynamics and geometry are generic examples, not calibrated to Talon hardware.
+- M3 static-grasp normal forces and six deterministic runs do not imply robust force-controlled grasping across materials or object geometries.
+- M2 FK TCP ends at Link 2 (x=0.25 local), whereas the gripper's approximate pinch center is further ahead (x≈0.345 local). M4 must handle this offset explicitly.
 
 ## Checkpoint History
 - **2026-11-21 M1:** M0+M1 manual demonstration; M1 automatic smoke test deferred; implementation `35bb555`, docs `e721c38`.
 - **2026-11-21 M2 implementation:** modular FK/IK, motion controller, GUI demo, headless validator; user reported 6/6 PASS, committed and merged to main as `5a769e4`.
 - **2026-11-21 documentation checkpoint:** README and four canonical arm continuity files updated on `main`; no code implementation changes.
 
+### 2026-11-22 — M3 gripper checkpoint
+- M3 physical interaction and deterministic validation suite completed and user-verified; M2 regression again passes.
+- Feature `feat/m3-gripper` committed/pushed at `304fb40`; `main` fast-forwarded safely to it; M3 documentation updated afterward on `main`.
+- M4 is next, using known object-pose inputs initially. See synchronized `docs/NEXT_STEPS.md`; no M4 source implementation completed.
+
 ## Continuation Rules
-Repository state is authoritative over conversation memory. Confirm remote branch/HEAD and read the four docs before resuming. Distinguish user-observed local results from source code inspection. User writes and tests code one file at a time, prefers simple explanations; assistant can manage approved documentation checkpoints. Do not begin M3 until requested.
+Repository state is authoritative over conversation memory. Confirm remote branch/HEAD and read the four docs before resuming. Distinguish user-observed local results from source code inspection. User writes and tests code one file at a time, prefers simple explanations; assistant can manage approved documentation checkpoints. Continue M4 from its exact next step; distinguish planned architecture from implemented behavior.

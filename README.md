@@ -1,8 +1,8 @@
 # Neptune Arm Simulation
 
-A simulation-first learning and engineering project for a **two-revolute-joint (2-DOF) planar robotic arm**. The current prototype uses PyBullet to implement analytical forward/inverse kinematics, smooth joint-space trajectories, Cartesian targeting, motor control, and quantitative validation. The longer-term goal is a physical-contact gripper, automated pick-and-place, then adaptation of Project Neptune's Talon manipulator in Stonefish.
+A simulation-first learning and engineering project for a **two-revolute-joint (2-DOF) planar robotic arm with a parallel-jaw gripper**. The PyBullet prototype now supports analytical FK/IK, smooth joint-space trajectories, Cartesian targeting, physical object contact, pinch grasp, lift and gravity-based release. Next is autonomous pick-and-place, then adaptation of Project Neptune's Talon manipulator in Stonefish.
 
-**Status:** M0–M2 complete for the prototype scope; **M3 (gripper) is next but has not started**. The merged implementation checkpoint is [`5a769e4`](https://github.com/sidhantjha/neptune-arm-sim/commit/5a769e412beafb026cb9aa5b01d411af2f1ef181).
+**Status:** **M0–M3 complete** for the tested simulation scope; **M4 (autonomous pick-and-place with known simulated object pose) is next, not yet implemented**. M3 implementation was fast-forward merged to `main` at [`304fb40`](https://github.com/sidhantjha/neptune-arm-sim/commit/304fb401db97a7a8215ef44c6858a53517b5f60a).
 
 ## Quick start
 
@@ -14,6 +14,12 @@ python -m src.kinematics_control.demo
 
 # Validate M2 motion system without opening a GUI
 python -m src.kinematics_control.validate
+
+# M3: finger actuation, fixed-object contacts, dynamic lift, and multi-mass verification
+python -m src.grasping.gripper
+python -m src.grasping.contact
+python -m src.grasping.lift
+python -m src.grasping.validate
 
 # Optional: inspect individual modules
 python -m src.common.simulation
@@ -31,7 +37,8 @@ Run the GUI demo to change **Target X** and **Target Z** sliders in meters. The 
 
 ```text
 models/
-  2_dof_arm.urdf            # Fixed pedestal, shoulder, elbow, example link dynamics
+  2_dof_arm.urdf            # Original 2-DOF model (preserved for M2)
+  2_dof_gripper.urdf        # M3 adds fixed palm and two prismatic fingers
 src/
   run_arm.py                # Legacy integrated M1/M2 development script
   common/
@@ -44,6 +51,11 @@ src/
     controller.py           # Stateful IK/trajectory planning and motor commands
     demo.py                 # Preferred interactive M2 GUI
     validate.py             # Headless six-check M2 validation
+  grasping/
+    gripper.py              # Finger position/opening-width controller
+    contact.py              # Test cube, friction, finger contact readings
+    lift.py                 # Supported cube, pinch, lift and release
+    validate.py             # Six deterministic mass/repeat trials
 docs/
   PROJECT.md                # Mission, architecture, constraints, roadmap
   PROGRESS.md               # Verified accomplishments and milestone status
@@ -51,7 +63,7 @@ docs/
   NEXT_STEPS.md             # Exact next action and continuation plan
 ```
 
-`metrics.py`, duplicate demos, and any gripper-specific code were intentionally **not** added in M2. The validation/demo currently calculate essential errors inline. Shared helpers are imported by the M2 demo and headless validator; `run_arm.py` remains as a working historical script and has not been deleted.
+`metrics.py` and duplicate manual demos were intentionally not added. M3 is implemented in `src/grasping/`, reusing M2 `ArmController` and the shared simulation module. The older `src/run_arm.py` is retained as a historical script and has not been deleted. The original M2 URDF and six-check validator remain unchanged.
 
 ## Model conventions and scope
 
@@ -85,6 +97,20 @@ The developer ran `python -m src.kinematics_control.validate` locally after the 
 
 Acceptance thresholds in `validate.py`: Cartesian final error ≤0.01 m, joint final error ≤2°, independent FK error ≤0.0001 m. The observed maximum reported final joint error was 0.001°, and the maximum reported FK error was 0.00000007 m. These are **simulation** results, not hardware accuracy guarantees or proof of collision-free trajectories.
 
+## Verified M3 physical grasping
+
+The developer ran M3 on Windows/PyBullet, reporting **all tests PASS**:
+
+- `python -m src.grasping.gripper`: fingers reached 0.0980 m open and 0.0280 m closed.
+- `python -m src.grasping.contact`: a **static 40 mm cube** had no initial finger contacts; closing produced a 0.0400 m actual gap, four contact points on each finger and **8.000 N** reported summed normal force per finger.
+- `python -m src.grasping.lift`: a **movable 50 g cube** was pinched through frictional contacts, lifted **0.1009 m** and released with **0.1016 m** measured drop; contact counts persisted after lift.
+- `python -m src.grasping.validate`: **6/6 PASS**, two separate reset-simulation runs each at **30 g, 50 g, 80 g**, with lifts approximately 0.0973–0.1013 m and drops approximately 0.0975–0.1016 m.
+- `python -m src.kinematics_control.validate`: M2 **6/6 PASS** again after M3.
+
+The M3 robot URDF has two revolute arm joints, a fixed palm mount, and two prismatic sliding-finger joints (four actuated DOF). Its symmetric finger controller commands openings between **28 and 98 mm** using up to 8 N motor force per finger, with provisional lateral friction 1.0. **No artificial object attachment is used.**
+
+**Scope:** all M3 tests used one 40 mm cube geometry, fixed starting pose, and two repeats per mass under identical conditions; they do not demonstrate robustness to arbitrary placement, orientation, object geometry, or uncertain friction. The 8 N fixed-object contact reading is not a calibration of grasp force in moving trials.
+
 ## Milestones
 
 | Milestone | Status |
@@ -92,8 +118,8 @@ Acceptance thresholds in `validate.py`: Cartesian final error ≤0.01 m, joint f
 | M0 — Repository and PyBullet environment | Complete |
 | M1 — 2-DOF URDF, manual sliders, FK comparison | Manual demonstration complete |
 | M2 — FK/IK, Cartesian control, quintic trajectories, modular architecture, validation | **Complete: 6/6 headless validation** |
-| M3 — Two-finger gripper and physical grasp | Next; not started |
-| M4 — Autonomous pick-and-place | Planned |
+| M3 — Two-finger gripper, contact forces, grasp/lift/release | **Complete: 6/6 repeated-trial validation** |
+| M4 — Autonomous pick-and-place using known object pose | **Next; not yet implemented** |
 | M5 — Talon arm CAD integration | Planned |
 | M6 — Stonefish/Neptune ROV integration | Planned |
 
@@ -102,7 +128,7 @@ Acceptance thresholds in `validate.py`: Cartesian final error ≤0.01 m, joint f
 - Joint-space interpolation does not guarantee straight-line TCP motion or collision-free paths.
 - Replanning while dragging sliders restarts a quintic path and is position-continuous at the commanded configuration, but may not be velocity/acceleration continuous.
 - Model dimensions, masses, inertias and motor settings are provisional examples, not identified Talon hardware parameters.
-- No gripper, object-contact manipulation, perception, underwater dynamics, or real-robot control yet.
-- `validate.py` checks endpoint convergence and FK agreement for four selected targets plus reachability; it does not exhaustively test the workspace or all intermediate trajectory collisions.
+- No autonomous pick-and-place task state machine, object perception, underwater dynamics, or real-robot control yet.
+- The M2 validator checks selected target endpoints and reachability, not all intermediate collisions. M3 tests deterministic grasp/lift/release at a single object pose, not varied placement/friction. The M2 TCP points to Link 2's end, while the M3 grasp center is offset; M4 must account for that transform.
 
 See [project definition](docs/PROJECT.md), [milestone progress](docs/PROGRESS.md), [recorded experiments](docs/EXPERIMENTS.md), and [next steps](docs/NEXT_STEPS.md). The parent vehicle project lives separately at [Project-Lumyn/Project-Neptune](https://github.com/Project-Lumyn/Project-Neptune).

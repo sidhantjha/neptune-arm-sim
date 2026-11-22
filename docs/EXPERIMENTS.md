@@ -1,7 +1,7 @@
 # Experiments and Engineering Findings
 
 ## Scope and Evidence
-Results below are from **developer-provided terminal output and observations** unless stated otherwise. The assistant inspected the merged source code but did not rerun the developer's Windows/PyBullet environment. Commit `5a769e4` contains the completed M2 prototype on `main`.
+Results below are from **developer-provided terminal output and observations** unless stated otherwise. The assistant inspected the merged source code but did not rerun the developer's Windows/PyBullet environment. Commit `5a769e4` contains the completed M2 prototype; M3 implementation `304fb40` is merged into `main`. Developer-supplied console output establishes M3 tests and repeat M2 regression; no independent assistant test execution occurred.
 
 ## Index
 
@@ -15,7 +15,11 @@ Results below are from **developer-provided terminal output and observations** u
 | EXP-006 | GUI Cartesian targeting with quintic trajectories | PASS — manual |
 | EXP-007 | Pedestal collision pushback | PASS — user visual confirmation; force not recorded |
 | EXP-008 | Shared simulation/robot module checks | PASS — user-observed |
-| EXP-009 | M2 headless six-check validation | **PASS — 6/6** |
+| EXP-009 | M2 headless six-check validation; later regression rerun | **PASS — 6/6** both times |
+| EXP-010 | M3 URDF and prismatic finger motor open/close | PASS — user-observed |
+| EXP-011 | M3 static cube pinch contact and force logging | PASS — user-observed |
+| EXP-012 | M3 movable 50 g cube grasp/lift/release | PASS — user-observed |
+| EXP-013 | M3 deterministic multi-mass trials | **PASS — 6/6** user-observed |
 
 ## EXP-001 — Environment
 Date: 2026-11-21. Windows PowerShell, Conda `neptune-arm`, Python 3.11; PyBullet build reported Nov 21, 2026.
@@ -70,14 +74,45 @@ Acceptance thresholds: target error ≤0.01 m, joint final error ≤2°, indepen
 Reported final summary: `M2 VALIDATION: 6/6 PASSED` and `M2 motion system validated successfully!`.
 Conclusion: M2 prototype endpoint tracking, FK consistency, and unreachable-target handling pass the defined tests. **This is not evidence of collision-free trajectories, obstacle avoidance, grasp stability, or field performance.**
 
-## Next Experiments (not yet run)
-- M3: finger open/close articulation; verify both fingers physically move and limits are observed.
-- M3: friction/contact test with small object; contact forces during pinch and lift; release verification.
-- M3: multiple object masses/sizes and repeated grasp trials with explicit success criteria.
-- M4: autonomous full pick-and-place trials with known object coordinates, failure handling, success rate.
+## EXP-010 — Gripper URDF and motor positions
+Date: 2026-11-22; code later merged at `304fb401db97a7a8215ef44c6858a53517b5f60a`.
+URDF: `models/2_dof_gripper.urdf` (separate from M2 arm URDF); joint indices/types: 0 shoulder revolute, 1 elbow revolute, 2 fixed palm mount, 3 left-finger prismatic, 4 right-finger prismatic. Finger joint travel 0–0.035 m each, opposite local Y axes. `GripperController` commands symmetrical opening 0.028–0.098 m with max motor force 8 N and max motor velocity 0.06 m/s. Developer ran `python -m src.grasping.gripper`; output: opened 0.0980 m, closed 0.0280 m; **PASS**. Early source error using `<=` and `>=` rejected exact limit endpoints; changed to strict `<` and `>` before passing.
+
+## EXP-011 — Contact/friction against fixed cube
+Command: `python -m src.grasping.contact`.
+40 mm cube at world (0.645,0,0.65) m, mass 0.0 (static), friction parameter `lateralFriction=1.0` on cube and both fingers. Open state had contacts (0,0). After closing: actual jaw opening **0.0400 m**, **4 left + 4 right contact points**, summed normal force **8.000 N per finger**. Result: **PASS (user-observed)**. Force is a solver-reported static-contact value, not a calibrated tactile measurement or proof of usable dynamic friction force.
+
+## EXP-012 — Movable cube pinch, lift, and gravity release
+Command: `python -m src.grasping.lift`. 40 mm cube with mass **0.050 kg**, supported on static platform before lift. Arm used existing M2 `ArmController` and a 9°-shoulder-derived Cartesian lift target; fingers used M3 `GripperController`. After closure: contacts left=2, right=4, measured gap 0.0401 m. Cube center height before=0.6506 m, after=0.7516 m: lift **0.1009 m**. Contacts after lift left=2, right=3. After opening fingers, cube fell **0.1016 m**. Lift and release **PASS**. No rigid attachment / teleport used; supports genuine physics-contact manipulation for this scenario, not general pick-and-place.
+
+## EXP-013 — Repeated multi-mass M3 validation
+Command: `python -m src.grasping.validate`; model: same 40 mm cube geometry and support, mass sweep 0.030 / 0.050 / 0.080 kg, **two independent reset simulation runs each**, identical initial conditions. Each checks gripper open, initially clear contacts, positive bilateral squeeze force, cube rise >0.04 m and retained contacts, and drop >0.04 m after release.
+
+| Mass | Trial | Lift (m) | Drop (m) | Result |
+|---|---:|---:|---:|---|
+| 0.030 kg | 1 | 0.0973 | 0.0975 | PASS |
+| 0.030 kg | 2 | 0.0973 | 0.0975 | PASS |
+| 0.050 kg | 1 | 0.1009 | 0.1016 | PASS |
+| 0.050 kg | 2 | 0.1009 | 0.1016 | PASS |
+| 0.080 kg | 1 | 0.1013 | 0.1015 | PASS |
+| 0.080 kg | 2 | 0.1013 | 0.1015 | PASS |
+
+Result: **M3 VALIDATION: 6/6 PASSED (user-observed)**.
+M2 regression afterward: `python -m src.kinematics_control.validate` → **6/6 PASSED** with previously observed endpoint errors (max 0.000005 m) unchanged.
+
+Interpretation: consistent grasp, lift and release for three tested masses in a deterministic pose/surface setup. Not a statistical success-rate estimate over varied starts, uncertain object pose, lateral motion, grip friction, or obstacles.
+
+## Next Experiments (M4; not yet run)
+- M4-001: verify gripper pinch-center world transform against current PyBullet link/finger transforms for several arm poses; ensure object center can be aligned using only 2R arm DOFs.
+- M4-002: execute ordered task states with **known simulated object pose** and fixed destination; verify each state transition and timeout behavior.
+- M4-003: autonomously approach, grasp, lift, transfer, set down and release a 40 mm/50 g object without attachments, using M2 and M3 motor controllers.
+- M4-004: evaluate placement error, stable release, phase failures and repeatability over explicitly chosen feasible pickup/destination configurations.
 
 ## Technical Debt / Known Limitations
 - `src/run_arm.py` is a legacy monolithic script; now-independent `src.kinematics_control.demo` is preferred. No deletion was performed.
 - User intentionally omitted standalone `metrics.py`; test/demo compute final errors inline.
 - Nearest-branch IK heuristic does not perform obstacle/collision-free path search.
 - Repeated GUI changes may cause trajectory replanning and derivative discontinuities.
+- Existing M3 code loads gripper URDF directly; `src/common/robot.load_robot` assumes two joints and is used for M2 only. M4 must not naively replace the M2 loader with a five-joint model.
+- M3 cube generator has fixed position (0.645,0,0.65) and no parameterized placement yet; M4 may add pose arguments and preserve M3 regression tests.
+- The original M2 tip TCP is not M3's gripper pinch center; M4 needs an explicit transform.
