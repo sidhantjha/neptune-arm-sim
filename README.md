@@ -4,6 +4,10 @@ A simulation-first learning and engineering project for a **two-revolute-joint (
 
 **Status:** **M0–M4 complete for the defined simulation-prototype scope.** M4 implementation and six-trial validator are on `main` at [`cf80ff7`](https://github.com/sidhantjha/neptune-arm-sim/commit/cf80ff7ab025da0d3256926a3fb84a8ccbb52d01); the developer reported **M4 6/6 PASS**, plus **M3 6/6** and **M2 6/6** regression. **M5 — actual Talon CAD/actuation integration — is the next project workstream, not started.**
 
+## Neptune integration handoff (2026-11-26)
+
+The educational arm prototype is complete. The new **Neptune ROS 2 + Stonefish transition plan** is stored here *temporarily* because the authoritative team repository was inaccessible to the connected GitHub app during checkout. Start at **[HANDOFF.md](HANDOFF.md)**, then read [the detailed transition brief](docs/NEPTUNE_TRANSITION_HANDOFF.md) and [the read-only Codex audit prompt](docs/CODEX_AUDIT_PROMPT.md). No parent Neptune code or CAD was changed by this handoff. The next step is to verify and read the canonical team `Project-Lumyn/Project-Neptune` checkout before coding.
+
 ## Quick start
 
 Tested by the developer on **Windows PowerShell**, in the Conda environment `neptune-arm` with Python 3.11 and PyBullet. Work from the repository root. If setting up a new environment, install `pybullet` in the active Python environment.

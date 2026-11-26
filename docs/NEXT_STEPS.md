@@ -15,6 +15,9 @@ This file closes the self-contained educational manipulator prototype; **do not 
 - User demonstrated both headless and GUI complete autonomous sequence, final cube near `(0.4696,0.0016,0.6000) m` vs `(0.49,0,0.60) m`, error ~0.0204 m.
 - M4 feature branch `feat/m4-pick-and-place`, implementation `dc363fd`, validator `cf80ff7`; source was safely fast-forward merged into `main`, with docs updated afterward.
 
+## 2026-11-26 Checkout — Temporary Neptune Handoff
+The user requested a chat-continuity checkpoint while moving from the completed arm-sim prototype to Neptune architecture/setup audit, modularization and a generic AUV + 2-DOF arm Stonefish demo. See [../HANDOFF.md](../HANDOFF.md), [NEPTUNE_TRANSITION_HANDOFF.md](NEPTUNE_TRANSITION_HANDOFF.md) and [CODEX_AUDIT_PROMPT.md](CODEX_AUDIT_PROMPT.md). Parent team repo was not accessible through the connector; **this has not yet been transferred there**. Next: verify canonical checkout, read all authoritative current context, run Codex read-only audit; no Neptune refactor or CAD import yet.
+
 ## Exact Next Action — M5, in Parent Project
 **Fetch/read canonical [Project-Lumyn/Project-Neptune](https://github.com/Project-Lumyn/Project-Neptune) `main` before Neptune implementation.** Review all seven root continuity files (`AGENTS.md`, `PROJECT_STATE.md`, `ROADMAP.md`, `ACTIVE_WORK.md`, `DECISIONS.md`, `EXPERIMENTS.md`, `HANDOFF.md`) plus relevant `docs/PROJECT_HANDOFF.md`, `docs/ARCHITECTURE.md`, `docs/INTERFACES.md`, `docs/TEAM_CONTRACTS.md`, `docs/OWNERSHIP.md`, `docs/PROJECT_HISTORY.md`. Verify HEAD/branch/remote and preserve existing team work. Check whether Talon CAD/arm work is the current active parent workstream before starting implementation.
 
