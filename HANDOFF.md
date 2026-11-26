@@ -1,9 +1,9 @@
 # HANDOFF — Neptune Transition (temporary home)
 
-**Checkpoint date:** 2026-11-26  
-**Repository storing this handoff:** `sidhantjha/neptune-arm-sim` on `main`  
-**Authoritative Neptune repository (not accessible through the current GitHub connector):** `Project-Lumyn/Project-Neptune`  
-**Full transition brief:** [docs/NEPTUNE_TRANSITION_HANDOFF.md](docs/NEPTUNE_TRANSITION_HANDOFF.md)  
+**Checkpoint date:** 2026-11-26
+**Repository storing this handoff:** `sidhantjha/neptune-arm-sim` on `main`
+**Authoritative Neptune repository (not accessible through the current GitHub connector):** `Project-Lumyn/Project-Neptune`
+**Full transition brief:** [docs/NEPTUNE_TRANSITION_HANDOFF.md](docs/NEPTUNE_TRANSITION_HANDOFF.md)
 **Codex read-only audit prompt:** [docs/CODEX_AUDIT_PROMPT.md](docs/CODEX_AUDIT_PROMPT.md)
 
 ## Read this first when the user says `resume project`

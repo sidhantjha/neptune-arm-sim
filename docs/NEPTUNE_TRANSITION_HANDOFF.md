@@ -1,7 +1,7 @@
 # Project Neptune — Engineering Transition Handoff
 
-**Saved:** 2026-11-26. **Temporary storage:** [neptune-arm-sim](https://github.com/sidhantjha/neptune-arm-sim).  
-**Authority:** [Project-Lumyn/Project-Neptune](https://github.com/Project-Lumyn/Project-Neptune) when its current `main` becomes accessible. This is an interim continuation record, **not a verified snapshot of the current canonical Neptune tree**.  
+**Saved:** 2026-11-26. **Temporary storage:** [neptune-arm-sim](https://github.com/sidhantjha/neptune-arm-sim).
+**Authority:** [Project-Lumyn/Project-Neptune](https://github.com/Project-Lumyn/Project-Neptune) when its current `main` becomes accessible. This is an interim continuation record, **not a verified snapshot of the current canonical Neptune tree**.
 **Entry point:** [../HANDOFF.md](../HANDOFF.md). **Codex audit prompt:** [CODEX_AUDIT_PROMPT.md](CODEX_AUDIT_PROMPT.md).
 
 ## 1. Mission, user goals, and rationale
